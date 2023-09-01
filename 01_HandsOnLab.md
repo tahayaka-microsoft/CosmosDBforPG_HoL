@@ -148,3 +148,188 @@ SELECT create_distributed_table('github_users', 'user_id');
 >	- 参照テーブル – 全てのノードに複製されます。分散テーブルとの結合を可能にします。典型的には国や製品カテゴリのような小さなテーブルに用いられます。
 >	- ローカルテーブル – コーディネーターノードに置かれるテーブルで、シャーディングのメタデータの管理テーブルが典型例です。
 
+データをロードする準備が整いました。以下のコマンドでBashのクラウドシェルを「シェル実行」し、ファイルをダウンロードします。
+
+6. Psqlコンソールでデータファイルをダウンロードするために以下をコピー＆ペーストとします。
+
+```
+\! curl -O https://examples.citusdata.com/users.csv
+\! curl -O https://examples.citusdata.com/events.csv
+```
+7. Psqlコンソールでデータファイルをロードするために以下をコピー＆ペーストします。
+
+```
+\copy github_events from 'events.csv' WITH CSV
+\copy github_users from 'users.csv' WITH CSV
+```
+重い本番ワークロードの場合、COPYコマンドが単一ノードのPostgresよりもHyperscale (Citus) で高速な理由は、COPYがファンアウトされ複数のワーカーノードで並行して実行されることによります。
+
+# クエリの実行
+ここから、実際にいくつかのクエリを実行するので、楽しい時間です。簡単なカウント(*)から始めて、読み込んだデータの量を確認します。
+8. Psqlコンソールでgithub_eventsテーブルのレコードカウントを取得するために以下をコピー＆ペーストします
+```
+SELECT count(*) from github_events;
+```
+この単純なクエリは、先ほど作成されたシャードキーuser_idに基づいてコーディネーターがすべてのワーカーに対して伝播（プロパゲート）し、コーディネーターが集計したレコード数が返されました。
+JSONBペイロード列には、多くのデータがありますが、イベントの種類によって異なります。PushEventイベントには、プッシュの個別のコミットの数を含むサイズが含まれています。これを使用して、1時間あたりのコミットの合計数を検索できます。
+
+9. Psqlコンソールで時間あたりのコミット数を見るために以下をコピー＆ペーストします。
+
+```
+SELECT date_trunc('hour', created_at) AS hour,
+       sum((payload->>'distinct_size')::int) AS num_commits
+FROM github_events
+WHERE event_type = 'PushEvent'
+GROUP BY hour
+ORDER BY hour;
+```
+
+> 注: 結果ビューでスタックした場合は、[q]と入力し、[Enter]を押してビューモードを終了します。
+
+これまでのところ、クエリにはgithub_eventsテーブルだけが関係していましたが、この情報をgithub_usersテーブルと組み合わせることができます。ユーザーとイベントの両方を同じ識別子（user_id)でシャードしたので、一致するユーザーIDを持つ両方のテーブルの行は同じワーカーノードに配置され、簡単に結合できます。user_idでクエリを結合すると、Hyperscale (Citus) コーディネーターは、ワーカーノードで並行して実行するために、結合の実行をシャード、つまりワーカーノード、に指示することになります。
+
+10. Psqlコンソールでレポジトリ数が最大のユーザを見つけるために以下をコピー＆ペーストします。
+
+```
+SELECT login, count(*)
+FROM github_events ge
+JOIN github_users gu
+ON ge.user_id = gu.user_id
+WHERE event_type = 'CreateEvent' AND
+      payload @> '{"ref_type": "repository"}'
+GROUP BY login
+ORDER BY count(*) DESC
+LIMIT 20;
+```
+
+本番ワークロードでは、次の理由により、上記のクエリはHyperscale (Citus) 上で高速に実行されます。
+
+- シャードが小さく、インデックスも小さい。これはリソースの利用効率の向上とインデックス/キャッシュのヒット率の向上に寄与します。
+- 複数のワーカーノードによる並列実行
+
+# まとめ
+
+このラボではデータベースクラスターを展開しシャーディングキーを設定することで、Microsoft Azure上でPostgreSQLを水平にスケールする方法を学びました。
+他にも特にここで学んだこととして以下がありました。
+
+-	Azure Database for PostgreSQL Hyperscale (Citus) を展開する方法
+-	Azureクラウドシェルの作り方
+-	Psqlを用いたHyperscale (Citus) への接続方法
+-	スキーマの作成方法、シャーディングキーの設定方法、サーバーグループへのデータのロード方法
+
+Azure Database for PostgreSQL Hyperscale (Citus) を使用すると、PostgreSQLデータベースクラスター（「サーバーグループ」と呼ばれる）にデータとクエリを分散できるため、サーバーグループ内のすべてのノードで、すべてのメモリ、コンピューティング、およびディスクが利用できるというパフォーマンス上の利点をアプリケーションに提供できます。
+自分のサブスクリプションでHyperscale (Citus) を試してみたい場合は、以下のリンクを参照してください。
+
+[Azure portal で Hyperscale (Citus) サーバー グループを作成する](https://docs.microsoft.com/ja-jp/azure/postgresql/hyperscale/quickstart-create-portal)
+
+# マルチテナントアプリケーション
+
+この経験では、Azure Database for PostgreSQL Hyperscale (Citus)上でマルチテナントアプリケーションを作成するプロセスを説明します。
+サービスとしてのソフトウェア (SaaS) アプリケーションを構築する場合は、データモデルにテナントの概念が既に組み込まれている可能性があります。通常、ほとんどの情報はテナント/顧客/アカウントに関連し、データベーステーブルはこの自然な関係をキャプチャします。
+SaaSアプリケーションの場合、各テナントデータは１つのデータベースインスタンスにまとめて格納され、他のテナントから分離され、非表示に保つことができます。これは３つの点で効率的です。まず、アプリケーションの改善はすべてのクライアントに適用されます。次に、テナント間でデータベースを共有する場合、ハードウェアを効率的に使用します。最後に、すべてのテナントに対して、テナントごとに異なるデータベース サーバーよりも、すべてのテナントに対して１つのデータベースを管理する方がはるかに簡単です。
+従来、単一のリレーショナルデータベースインスタンスでは、大規模なマルチテナントアプリケーションに必要なデータの量にスケーリングするのが困難でした。開発者は、データが単一のデータベースノードの容量を超えた場合に、リレーショナルモデルの利点を放棄することを余儀なくされました。
+Hyperscale (Citus) を使用すると、データベースが実際には水平方向にスケーラブルなマシンクラスタであるのに、ユーザーは単一のPostgreSQLデータベースに接続しているかのようにマルチテナントアプリケーションを作成できます。クライアントコードは最小限の変更のみを必要とし、完全なSQL機能を引き続き使用できます。
+このガイドでは、マルチテナントアプリケーションのサンプルを取り上げ、Hyperscale (Citus) を使用してスケーラビリティを考慮してモデル化する方法について説明します。その過程で、ノイズの多い隣のテナントからテナントを分離する、より多くのデータに対応するハードウェアのスケーリング、テナント間で異なるデータの格納など、マルチテナントアプリケーションの一般的な課題について検討します。Azure Database for PostgreSQL Hyperscale (Citus)は、これらの課題を処理するために必要なすべてのツールを提供します。では作成してみましょう。
+
+# 広告業向けのマルチテナントアプリケーションを作成する
+
+顧客がオンライン広告のパフォーマンスを追跡できるようにするマルチテナントSaaSアプリケーションのバックエンドの例を構築します。ユーザーはある瞬間に自らの会社（自分の会社）に関連するデータをリクエストするので、マルチテナントアプリケーションが向いているのは当然のことです。
+このマルチテナントSaaSアプリケーションの簡略化されたスキーマを検討することから始めましょう。アプリケーションは、広告キャンペーンを実行する複数の企業を追跡する必要があります。キャンペーンには多数の広告があり、各広告にはクリック数とインプレッションの記録が関連付けられています。
+以下はスキーマの例です。
+1. Psqlコンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして会社（テナント）とそのキャンペーンのテーブルを作成します。
+
+```
+CREATE TABLE companies (
+id bigserial PRIMARY KEY,
+name text NOT NULL,
+image_url text,
+created_at timestamp without time zone NOT NULL,
+updated_at timestamp without time zone NOT NULL
+);
+CREATE TABLE campaigns (
+id bigserial,
+company_id bigint REFERENCES companies (id),
+name text NOT NULL,
+cost_model text NOT NULL,
+state text NOT NULL,
+monthly_budget bigint,
+blacklisted_site_urls text[],
+created_at timestamp without time zone NOT NULL,
+updated_at timestamp without time zone NOT NULL,
+PRIMARY KEY (company_id, id)
+);
+```
+
+2. Psqlコンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして会社の広告のテーブルを作成します。
+
+```
+CREATE TABLE ads (
+id bigserial,
+company_id bigint,
+campaign_id bigint,
+name text NOT NULL,
+image_url text,
+target_url text,
+impressions_count bigint DEFAULT 0,
+clicks_count bigint DEFAULT 0, created_at timestamp without time zone NOT NULL,
+updated_at timestamp without time zone NOT NULL,
+PRIMARY KEY (company_id, id),
+FOREIGN KEY (company_id, campaign_id)
+REFERENCES campaigns (company_id, id)
+);
+```
+
+3. Psqlコンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして各広告のクリック数とインプレッション数の状態を追跡します。
+
+```
+CREATE TABLE clicks (
+id bigserial,
+company_id bigint,
+ad_id bigint,
+clicked_at timestamp without time zone NOT NULL,
+site_url text NOT NULL,
+cost_per_click_usd numeric(20,10),
+user_ip inet NOT NULL,
+user_data jsonb NOT NULL,
+PRIMARY KEY (company_id, id),
+FOREIGN KEY (company_id, ad_id)
+REFERENCES ads (company_id, id)
+);
+CREATE TABLE impressions (
+id bigserial,
+company_id bigint,
+ad_id bigint,
+seen_at timestamp without time zone NOT NULL,
+site_url text NOT NULL,
+cost_per_impression_usd numeric(20,10),
+user_ip inet NOT NULL,
+user_data jsonb NOT NULL,
+PRIMARY KEY (company_id, id),
+FOREIGN KEY (company_id, ad_id)
+REFERENCES ads (company_id, id)
+);
+```
+
+4. Psqlコンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして今作成したテーブルを確認します。
+
+```
+\dt
+```
+
+マルチテナントアプリケーションはテナントごとにのみ一意性を適用できるため、すべての主キーと外部キーに会社 ID が含まれます。この要件により、分散環境ではこれらの制約を強制的に適用する必要が生じます。
+
+# リレーショナルデータモデルをスケールする
+
+リレーショナル データ モデルは、アプリケーションに最適です。データの整合性を保護し、柔軟なクエリを可能にし、変化するデータに対応します。従来の唯一の問題は、リレーショナル データベースが、大規模な SaaS アプリケーションに必要なワークロードにスケーリングできないと考えられていたことです。開発者は NoSQL データベースを受け入れるか、そのサイズに到達するまでバックエンド サービスの塊を受け入れるしかありませんでした。
+Hyperscale (Citus)を使用すると、データモデルを維持し、スケールすることができます。Hyperscale (Citus) はアプリケーションに単一の PostgreSQL データベースとして表示されますが、内部的には、要求を並列処理できる調整可能な数の物理サーバー (ノード) にクエリをルーティングします。
+マルチテナント アプリケーションには、通常、クエリはテナントの組み合わせではなく、一度に 1 つのテナントに対して情報を要求するという、優れたプロパティを持っています。たとえば、営業担当者が CRM で見込顧客情報を検索する場合、検索結果は営業担当者の雇用主、つまり所属企業に固有であって、その他の企業の見込み案件情報およびメモは含まれません。
+アプリケーション クエリは店舗や会社などの単一のテナントに制限されているため、マルチテナント アプリケーション クエリを高速化する方法の 1 つは、特定のテナントのすべてのデータを同じノードに格納することです。これにより、ノード間のネットワークオーバーヘッドが最小限に抑えられ、Hyperscale (Citus) がすべてのアプリケーションの結合、キー制約、およびトランザクションを効率的にサポートできるようになります。これにより、アプリケーションを完全に書き直したり再設計したりしなくても、複数のノードにまたがってスケーリングできます。
+
+<IMG>
+
+Hyperscale (Citus) では、テナントに関連するすべてのテーブルに、どのテナントがどの行を所有しているかを明確にマークする列があることを確認します。広告運用分析アプリケーションでは、テナントは会社なので、会社に関連するすべてのテーブルに company_id 列が含まれるようにする必要があります。これらのテーブルは分散テーブルと呼ばれています。たとえば:キャンペーンは企業向けであるため、キャンペーンテーブルには company_id 列が必要です。広告、クリック、インプレッションについても同じです。
+したがって、この例では company_id は “distribution column” (シャーディング キーまたは分散キーとも呼ばれます) になります。つまり、company_id を使用して、ワーカー ノード間のすべてのテーブルをシャード/分散します。これにより、すべてのテーブルが結び付きます。つまり、すべてのテーブルの 1 つの会社に関連するすべてのデータが同じワーカー ノード上にあります。このようにして、Hyperscale (Citus) に対して、同じ会社の行がマークされている場合に、この列を使用して同じノードに行を読み取りおよび書き込むように伝えることができます。たとえば、上記の図では、company_id 5 のすべてのテーブルのすべての行が同じワーカー ノード上にあります。
+この時点で、SQL をダウンロード・実行してスキーマを作成することにより、あなた専用のHyperscale (Citus) クラスターを目で追ってみましょう。スキーマの準備ができたら、Hyperscale (Citus) にワーカーノードにシャードを作成するように伝えることができます。
+
+# ノード間にテーブルをシャードする
+
