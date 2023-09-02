@@ -1001,7 +1001,7 @@ SELECT rollup_http_request();
 
 ダッシュボードクエリはもう少し複雑です。`hll_cardinality`関数を呼び出すことによって、異なるIPアドレスの数を読み取る必要があります。
 
-4. `psql`コンソールに以下をコピー＆ペーストし、hll_cardinality関数を利用したレポートを生成します。
+4. `psql`コンソールに以下をコピー＆ペーストし、`hll_cardinality`関数を利用したレポートを生成します。
 
 ```
 SELECT site_id, ingest_time as minute, request_count,
