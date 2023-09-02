@@ -545,7 +545,7 @@ AND company_id = 5
 Limit 5;
 ```
 
-## 結論
+## まとめ
 
 これで、どのようにCosmos DB for PostgreSQL (Citus) で、マルチテナントアプリケーションがスケールするようにする方法が分かりました。
 このチュートリアルでは、Cosmos DB for PostgreSQL (Citus) を使い以下の方法を学びました。
@@ -576,4 +576,407 @@ Cosmos DB for PostgreSQL (Citus)  は、複数のワーカー/リソース間で
 たとえば、顧客企業がHTTPトラフィックを監視できるようにするクラウドサービスプロバイダーになることができます。顧客の1社がHTTP要求を受け取るたびに、サービスはログレコードを受け取ります。これらのレコードをすべて取り入れ、HTTP運用分析ダッシュボードを作成すると、サイトが提供したHTTPエラーの数などの洞察が顧客に提供されます。顧客がサイトの問題を解決できるように、このデータができるだけ少ない待機時間で表示されることが重要です。また、ダッシュボードに過去の傾向のグラフを表示することも重要です。
 また、広告ネットワークを構築し、キャンペーンのクリック率を顧客に表示することもできます。この例では、待機時間も重要であり、生データ量も多く、履歴データとライブデータの両方が重要です。
 この経験では、Cosmos DB for PostgreSQL (Citus)  を使用して、リアルタイムおよびスケーリングの問題に対処する方法について説明します。
+
+## データモデル
+私たちがこれから扱うデータは、Cosmos DB for PostgreSQL (Citus) に直接挿入されるログデータで事後に変更されることのないストリームです。また、ログデータを最初にKafkaのようなサービスにルーティングすることも一般的です。Kafkaには、大量のデータを管理できるように、データを事前に集計できるなど、多くの利点があります。
+このページでは、HTTPイベントデータを取り込み、シャードし、読み込みとクエリを作成するための単純なスキーマを作成します。
+
+## アプリケーションのテーブルを作成する
+http_requests のテーブル、分単位の集計、および最後のロールアップの位置を維持するテーブルを作成してみましょう。
+
+1. Psqlコンソールに以下のCREATE TABLEコマンドをコピー＆ペーストしてテーブルを作成します。
+```
+-- this is run on the coordinator
+
+CREATE TABLE http_request (
+site_id INT,
+ingest_time TIMESTAMPTZ DEFAULT now(),
+url TEXT,
+request_country TEXT,
+ip_address TEXT,
+status_code INT,
+response_time_msec INT
+);
+
+CREATE TABLE http_request_1min (
+site_id INT,
+ingest_time TIMESTAMPTZ, -- which minute this row represents
+error_count INT,
+success_count INT,
+request_count INT,
+average_response_time_msec INT,
+CHECK (request_count = error_count + success_count),
+CHECK (ingest_time = date_trunc('minute', ingest_time))
+);
+
+CREATE INDEX http_request_1min_idx ON http_request_1min (site_id, ingest_time);
+
+CREATE TABLE latest_rollup (
+minute timestamptz PRIMARY KEY,
+CHECK (minute = date_trunc('minute', minute))
+);
+```
+
+2. Psqlコンソールに以下をコピー＆ペーストして作成したものを確認します。
+
+```
+\dt
+```
+
+## ノード間にテーブルをシャードする
+Cosmos DB for PostgreSQL (Citus) をデプロイすると、ユーザーが指定した列の値に基づいて、異なるノードにテーブルの行が格納されます。この「分散列」は、ノード間でデータをシャードする方法を示します。分散列をsite_id、つまりシャードキーに設定してみましょう。
+
+3. Psqlコンソールに以下をコピー＆ペーストしてテーブルをシャードします。
+
+```
+SELECT create_distributed_table('http_request',      'site_id');
+SELECT create_distributed_table('http_request_1min', 'site_id');
+```
+
+上記のコマンドは、ワーカーノード間の2つのテーブルのシャードを作成します。シャードは、一連のサイトを保持するPostgreSQLテーブルにすぎません。テーブルの特定のサイトのすべてのデータは、同じシャードに保持されます。
+両方のテーブルがsite_idでシャードされていることに注意してください。したがって、http_requestシャードとhttp_request_1minシャード、つまり同じサイトのセットを保持する両方のテーブルのシャードが同じワーカーノード上にある、1対1の対応があります。これはコロケーションと呼ばれています。コロケーションを使用すると、結合などのクエリがより高速になり、ロールアップが可能になります。次の図では、両方のテーブルのsite_id 1と3がワーカー1にあり、site_id 2と4 がWorker2 にあるコロケーションの例が表示されます。
+
+<IMG>
+
+> 注: create_distributed_table UDF (ユーザー定義関数) は、シャードカウントのデフォルト値を使用します。デフォルトは32です。HTTPトラフィックの監視と同様のリアルタイム分析のユースケースでは、クラスター内のCPUコアと同じ数のシャードを使用することをお勧めします。これにより、新しいワーカーノードを追加した後、クラスター全体でデータのバランスを取り直すことができます。シャードカウントは、citus.shard_countを使用して設定できます。これは、create_distributed_tableコマンドを実行する前に構成する必要があります。
+
+## データの生成
+システムはデータを受け入れ、クエリを提供する準備が整いました。次の一連の命令では、この資料の他のコマンドを続行しながら、バックグラウンドでPsqlコンソールで次のループを実行し続けます。それは1秒または2秒ごとに偽のデータを生成します。
+
+4. クラウドシェルのPsqlコンソールに以下をコピー＆ペーストしてbashコンソールから抜けます。
+
+```
+\q
+```
+
+5. クラウドシェルのバナー上の編集アイコンをクリックします
+
+<IMG>
+
+6. クラウドシェルのエディターに、以下をコピー＆ペーストして（エディターにペーストするには、[control] + [v]を使います）、http_requestの負荷を生成させます。
+
+```
+-- loop continuously writing records every 1/4 second
+DO $$
+BEGIN LOOP
+    INSERT INTO http_request (
+    site_id, ingest_time, url, request_country,
+    ip_address, status_code, response_time_msec
+    ) VALUES (
+    trunc(random()*32), clock_timestamp(),
+    concat('http://example.com/', md5(random()::text)),
+    ('{China,India,USA,Indonesia}'::text[])[ceil(random()*4)],
+    concat(
+        trunc(random()*250 + 2), '.',
+        trunc(random()*250 + 2), '.',
+        trunc(random()*250 + 2), '.',
+        trunc(random()*250 + 2)
+    )::inet,
+    ('{200,404}'::int[])[ceil(random()*2)],
+    5+trunc(random()*150)
+    );
+    COMMIT;
+    PERFORM pg_sleep(random() * 0.25);
+END LOOP;
+END $$;
+```
+
+7. クラウドシェルのエディターの右上にある、省略記号のアイコン をクリックし、Close Editorを選びます。
+8. “Do you want to save”ダイアログで、Saveをクリックします。
+9. ファイル名として以下を入力し、Saveをクリックします。
+
+```
+load.sql
+```
+
+10. クラウドシェルのbashコンソールに以下をコピー＆ペーストして、バックグラウンドでload.sqlを実行するために[Enter]を押します。load.sqlに続く”&”はバックグラウンド実行に必要です。
+
+```
+psql "host=c.citushandsonlab.postgres.database.azure.com port=5432 dbname=citus user=citus password='spxxxxxxxx' sslmode=require" -f load.sql &
+```
+
+## ダッシュボードのクエリー
+
+Cosmos DB for PostgreSQL (Citus) ホスティングオプションを使用すると、複数のノードがクエリを並列処理して高速化できます。たとえば、データベースはワーカーノードのSUMやCOUNTなどの集計を計算し、結果を最終的な回答に結合します。
+
+11. クラウドシェルのbashコンソールに以下をコピー＆ペーストして、再度Psqlを実行するために[Enter]を押します。
+
+```
+psql "host=c.citushandsonlab.postgres.database.azure.com port=5432 dbname=citus user=citus password='spxxxxxxxx' sslmode=require"
+```
+
+12. クラウドシェルのPsqlコンソールに以下のコマンドを入力し、リアルタイムの負荷が生成されているかを検証します。
+
+```
+SELECT Count(*) FROM http_request;
+```
+
+13. クラウドシェルのPsqlコンソールに以下のコマンドを複数回入力し、カウントが増加していることを確認します。
+```
+SELECT Count(*) FROM http_request;
+```
+
+このクエリを実行して、1 分あたりの Web 要求といくつかの統計情報をカウントします。
+
+14. Psqlコンソールに以下をコピー＆ペーストし、サイトに対する平均応答時間を確認します。
+
+```
+SELECT
+site_id,
+date_trunc('minute', ingest_time) as minute,
+COUNT(1) AS request_count,
+SUM(CASE WHEN (status_code between 200 and 299) THEN 1 ELSE 0 END) as success_count,
+SUM(CASE WHEN (status_code between 200 and 299) THEN 0 ELSE 1 END) as error_count,
+SUM(response_time_msec) / COUNT(1) AS average_response_time_msec FROM http_request
+WHERE date_trunc('minute', ingest_time) > now() - '5 minutes'::interval
+GROUP BY site_id, minute
+ORDER BY minute ASC
+LIMIT 15;
+```
+
+> 注: 結果ビューでスタックした場合は、「q」と入力し、「Enter」を押してビューモードを終了します。
+
+上記のセットアップは機能しますが、欠点があります。
+
+- HTTP 運用分析ダッシュボードは、グラフを生成する必要があるたびに全ての行を確認する必要があります。たとえば、クライアントが過去1年間の傾向に関心を持っている場合、クエリは過去1年間の全ての行を最初から集計します。
+- ストレージコストは、読み込み速度とクエリ可能な履歴の長さに比例して増加します。実際には、生のイベントを短い期間 (1か月) だけ保持し、より長い期間 (年) については履歴グラフだけを見たいはずです。
+
+## ロールアップ
+
+データが増加しても、パフォーマンスを維持することを考えましょう。生データを集計テーブルに定期的にロールアップすることで、ダッシュボードの高速化を保証します。集計期間を試すことができます。この例では、1分あたりの集計テーブルを使用しますが、代わりにデータを5分、15分、または60分に分割できます。
+このロールアップをより簡単に実行するには、plpgsql関数に配置します。
+http_request_1minを設定するには、SELECTに挿入を定期的に実行します。これは、テーブルがコロケーションされているために可能となります。次の関数は、便宜上ロールアップクエリをラップします。
+
+1. Psqlコンソールに以下をコピー＆ペーストし、rollup_http_request関数を作成します。
+
+```
+-- initialize to a time long ago
+INSERT INTO latest_rollup VALUES ('10-10-1901');
+-- function to do the rollup
+CREATE OR REPLACE FUNCTION rollup_http_request() RETURNS void AS $$
+DECLARE
+curr_rollup_time timestamptz := date_trunc('minute', now());
+last_rollup_time timestamptz := minute from latest_rollup;
+BEGIN
+INSERT INTO http_request_1min (
+site_id, ingest_time, request_count,
+success_count, error_count, average_response_time_msec
+) SELECT
+site_id,
+date_trunc('minute', ingest_time),
+COUNT(1) as request_count,
+SUM(CASE WHEN (status_code between 200 and 299) THEN 1 ELSE 0 END) as success_count,
+SUM(CASE WHEN (status_code between 200 and 299) THEN 0 ELSE 1 END) as error_count,
+SUM(response_time_msec) / COUNT(1) AS average_response_time_msec
+FROM http_request
+-- roll up only data new since last_rollup_time
+WHERE date_trunc('minute', ingest_time) <@
+tstzrange(last_rollup_time, curr_rollup_time, '(]')
+GROUP BY 1, 2;
+-- update the value in latest_rollup so that next time we run the
+-- rollup it will operate on data newer than curr_rollup_time
+UPDATE latest_rollup
+SET minute = curr_rollup_time;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+2. Psqlコンソールに以下をコピー＆ペーストし、ロールアップ関数を実行します。
+
+```
+SELECT rollup_http_request();
+```
+
+> 注: 上記の関数は毎分呼び出す必要があります。これを行うには、pg_cronという PostgreSQL 拡張機能を使用して、データベースから直接定期的なクエリをスケジュールできます。たとえば、上記のロールアップ関数は、以下のコマンドで毎分呼び出すことができます。
+
+```
+SELECT cron.schedule('* * * * *','SELECT rollup_http_request();');
+```
+
+以前のダッシュボードクエリよりもずっと良くなっています。１分間の集計ロールアップテーブルを照会して、以前と同じレポートを取得できます。
+
+3. Psqlコンソールに以下をコピー＆ペーストし、１分毎の集計テーブルでのクエリを実行します。
+
+```
+SELECT site_id, ingest_time as minute, request_count,
+success_count, error_count, average_response_time_msec
+FROM http_request_1min
+WHERE ingest_time > date_trunc('minute', now()) - '5 minutes'::interval
+LIMIT 15;
+```
+
+## 古いデータを期限切れにする
+ロールアップによってクエリが高速になりますが、ストレージコストが無限に増大することを回避するために古いデータを期限切れにする必要があります。粒度ごとにデータを保持する期間を決定し、標準クエリを使用して期限切れのデータを削除します。次の例では、生データを１日、１分単位の集計を１か月間、保持することにしました。期限切れになる古いデータがないため、これらのコマンドを今すぐ実行する必要はありません。
+
+```
+DELETE FROM http_request WHERE ingest_time < now() - interval '1 day';
+DELETE FROM http_request_1min WHERE ingest_time < now() - interval '1 month';
+```
+
+本番環境では、これらのクエリを関数にラップし、cronジョブで毎分呼び出すことができます。
+データの有効期限は、Cosmos DB for PostgreSQL (Citus) によるシャーディングに加えて、PostgreSQLの最新の時間パーティショニング機能を使用することで、さらに高速に実行できます。また、Cosmos DB for PostgreSQL (Citus) が提供するcreate_time_partition関数を使用して、時間パーティションの作成と保守を自動化することもできます。PostgreSQLはネイティブのパーティション機能を持ちますが執筆時点では性能問題について改善途中であるため、Cosmos DB for PostgreSQL (Citus) が提供するcreate_time_partition関数の利用をお勧めします。
+また、Citus 10ではカラムナーストレージが追加されました。この機能によって古くなってアクセス頻度が落ちたパーティションを列方向に圧縮することでストレージ領域を節約することが可能です。
+これらは基本に過ぎません！ HTTPイベントを取り込み、これらのイベントを事前に集約された形式にロールアップするアーキテクチャを提供しました。これにより、生のイベントを保存し、１秒未満のクエリを使用して分析ダッシュボードをより強力にすることもできます。
+次のセクションでは、基本的なアーキテクチャについて説明し、よく出てくる質問を解決する方法を示します。
+
+## おおよその個別の数
+
+HTTP運用分析におけるよくあるクエリーは、おおよその個別の数を扱います: 先月のサイトを訪問したユニーク訪問者数はいくつですか。この質問に正確に答えるには、以前にサイトを訪れたすべての訪問者のリストをロールアップテーブルに格納する必要があります。しかし、おおよその答えははるかに管理しやすくなります。
+ハイパーログログ (HLL) と呼ばれるデータ型は、クエリにほぼ答えることができます。セット内のユニークな要素の数を知るには、驚くほど少ないスペースで十分です。その正確さは調節することができます。最大2.2%のエラーがあるものの、1280バイトのみで、何百億という単位のユニーク訪問者数を数えることができるもの、を使用します。
+先月に顧客企業のサイトを訪問したユニークなIPアドレスの数など、グローバルクエリを実行する場合は、同様の問題が発生します。HLLがない場合、ワーカーからコーディネータに送信されるクエリ結果には、コーディネータが重複除外しないとならないIPアドレスの一覧が含まれます。これは、多くのネットワークトラフィックと計算の両方が必要になってしまいます。HLLを使用すると、クエリの速度を大幅に向上できます。
+Citus を自分でインストールする場合は、まずHLL拡張機能をインストールして有効にする必要があります。PsqlコマンドCREATE EXTENSION hllを実行します。この場合、すべてのノードで実行する必要があります。Cosmos DB for PostgreSQL (Citus) には、他の便利な拡張機能と共にHLLが既にインストールされているので、この作業はAzureでは必要となりません。
+これで、HLLを使用したロールアップでIPアドレスを追跡する準備ができました。最初にロールアップ テーブルに列を追加します。
+
+1. Psqlコンソールに以下をコピー＆ペーストし、http_request_1minテーブルを変更します。
+```
+ALTER TABLE http_request_1min ADD COLUMN distinct_ip_addresses hll;
+```
+
+次に、カスタム集計を使用して列を設定します。
+
+2. Psqlコンソールに以下をコピー＆ペーストし、ロールアップ関数のクエリに追加します。
+```
+-- function to do the rollup
+CREATE OR REPLACE FUNCTION rollup_http_request() RETURNS void AS $$
+DECLARE
+curr_rollup_time timestamptz := date_trunc('minute', now());
+last_rollup_time timestamptz := minute from latest_rollup;
+BEGIN
+INSERT INTO http_request_1min (
+site_id, ingest_time, request_count,
+success_count, error_count, average_response_time_msec,
+distinct_ip_addresses
+) SELECT
+site_id,
+date_trunc('minute', ingest_time),
+COUNT(1) as request_count,
+SUM(CASE WHEN (status_code between 200 and 299) THEN 1 ELSE 0 END) as success_count,
+SUM(CASE WHEN (status_code between 200 and 299) THEN 0 ELSE 1 END) as error_count,
+SUM(response_time_msec) / COUNT(1) AS average_response_time_msec,
+hll_add_agg(hll_hash_text(ip_address)) AS distinct_ip_addresses
+FROM http_request
+-- roll up only data new since last_rollup_time
+WHERE date_trunc('minute', ingest_time) <@
+tstzrange(last_rollup_time, curr_rollup_time, '(]')
+GROUP BY 1, 2;
+-- update the value in latest_rollup so that next time we run the
+-- rollup it will operate on data newer than curr_rollup_time
+UPDATE latest_rollup
+SET minute = curr_rollup_time;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+INSERT INTOステートメントにdistinct_ip_addressが追加され、
+SELECTにはhll_add_agg(hll_hash_text(ip_address)) AS distinct_ip_addressがrollup_http_request関数に追加されました。
+
+
+3. Psqlコンソールに以下をコピー＆ペーストし、更新された関数を実行します。
+```
+SELECT rollup_http_request();
+```
+
+ダッシュボードクエリはもう少し複雑です。hll_cardinality関数を呼び出すことによって、異なるIPアドレスの数を読み取る必要があります。
+
+4. Psqlコンソールに以下をコピー＆ペーストし、hll_cardinality関数を利用したレポートを生成します。
+
+```
+SELECT site_id, ingest_time as minute, request_count,
+success_count, error_count, average_response_time_msec,
+hll_cardinality(distinct_ip_addresses)::bigint AS distinct_ip_address_count
+FROM http_request_1min
+WHERE ingest_time > date_trunc('minute', now()) - interval '5 minutes'
+LIMIT 15;
+```
+
+HLLは単に高速なだけではなく、以前はできなかったことができます。ロールアップを実行したが、HLL を使用する代わりに、正確な一意のカウントを保存したとします。これは正常に動作しますが、「この1週間に、生データを破棄したセッションはいくつあったか」などのクエリには答えられません。
+HLLを使用すれば簡単です。次のクエリを使用して、一定期間における個別のIP数を計算できます。
+
+5. Psqlコンソールに以下をコピー＆ペーストし、期間中の異なるIP数を計算します。
+```
+SELECT hll_cardinality(hll_union_agg(distinct_ip_addresses))::bigint
+FROM http_request_1min
+WHERE ingest_time > date_trunc('minute', now()) - '5 minutes'::interval
+LIMIT 15;
+```
+
+## JSONBの非構造化データ
+
+Cosmos DB for PostgreSQL (Citus) は、Postgresに組み込みでサポートされている非構造化データ型とうまく機能します。これを実証するために、各国から来た訪問者数を追跡してみましょう。半構造化データ型を使用すると、個々の国ごとに列を追加する必要がなくなります。PostgreSQLには、JSONデータを格納するためのJSONBデータ型とJSONデータ型があります。データ型としてJSONBが推奨される理由は、a) JSONと比較してJSONBにはインデックス作成機能 (GINおよびGIST) があり、b) JSONBはバイナリ形式であるため圧縮機能が提供される、ためです。ここでは、JSONB列をデータモデルに組み込む方法を示します。
+
+1. Psqlコンソールに以下をコピー＆ペーストし、ロールアップのテーブルにJSONB列を新たに追加します。
+```
+ALTER TABLE http_request_1min ADD COLUMN country_counters JSONB;
+```
+
+2. Psqlコンソールに以下をコピー＆ペーストし、rollup_http_requestをcountry_countersで更新します。
+```
+-- function to do the rollup
+CREATE OR REPLACE FUNCTION rollup_http_request() RETURNS void AS $$
+DECLARE
+curr_rollup_time timestamptz := date_trunc('minute', now());
+last_rollup_time timestamptz := minute from latest_rollup;
+BEGIN
+INSERT INTO http_request_1min (
+site_id, ingest_time, request_count,
+success_count, error_count, average_response_time_msec,
+distinct_ip_addresses,
+country_counters
+) SELECT
+site_id,
+date_trunc('minute', ingest_time),
+COUNT(1) as request_count,
+SUM(CASE WHEN (status_code between 200 and 299) THEN 1 ELSE 0 END) as success_count,
+SUM(CASE WHEN (status_code between 200 and 299) THEN 0 ELSE 1 END) as error_count,
+SUM(response_time_msec) / COUNT(1) AS average_response_time_msec,
+hll_add_agg(hll_hash_text(ip_address)) AS distinct_ip_addresses,
+jsonb_object_agg(request_country, country_count) AS country_counters
+FROM (
+SELECT *,
+count(1) OVER (
+PARTITION BY site_id, date_trunc('minute', ingest_time), request_country
+) AS country_count
+FROM http_request
+) h
+-- roll up only data new since last_rollup_time
+WHERE date_trunc('minute', ingest_time) <@
+tstzrange(last_rollup_time, curr_rollup_time, '(]')
+GROUP BY 1, 2;
+-- update the value in latest_rollup so that next time we run the
+-- rollup it will operate on data newer than curr_rollup_time
+UPDATE latest_rollup SET minute = curr_rollup_time;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+3. Psqlコンソールに以下をコピー＆ペーストし、更新した関数を実行します。
+```
+SELECT rollup_http_request();
+```
+ダッシュボードでアメリカから送信されたリクエストの数を取得する場合は、ダッシュボードクエリを次のように変更できます。
+
+4. Psqlコンソールに以下をコピー＆ペーストし、アメリカからのリクエストを確認します。
+```
+SELECT
+request_count, success_count, error_count, average_response_time_msec, COALESCE(country_counters->>'USA', '0')::int AS american_visitors
+FROM http_request_1min WHERE ingest_time > date_trunc('minute', now()) - '5 minutes'::interval
+LIMIT 15;
+```
+
+## まとめ
+このチュートリアルでは、Azure Database for PostgreSQL Cosmos DB for PostgreSQL (Citus) を使い以下をどのように実行するかを学びました。
+- バックグラウンドでリアルタイムの負荷を生成する
+- Psql 関数を作成して更新する
+- アプリケーションがスケールできるようにデータをロールアップする
+- 古いデータの有効期限を切る
+- 個別のカウントに関するレポート
+- 非構造化データ (JSONB) を使用するようにモデルを更新する
+
+追加の参照情報
+- [Timeseries Data](https://docs.citusdata.com/en/v11.0/use_cases/timeseries.html?highlight=partition#automating-partition-creation)
+- [Archiving with Columnar Storage]
+(https://docs.citusdata.com/en/v11.0/use_cases/timeseries.html?highlight=partition#archiving-with-columnar-storage)
+- [GitHub - PostgreSQL Cron job](https://github.com/citusdata/pg_cron)
+- [GitHub - HLL HyperLogLog](https://github.com/citusdata/postgresql-hll)
+- [When to use unstructured datatypes in Postgres–Hstore vs. JSON vs. JSONB](https://www.citusdata.com/blog/2016/07/14/choosing-nosql-hstore-json-jsonb/) 
 
