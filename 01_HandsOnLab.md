@@ -106,7 +106,7 @@ Cosmos DB for PostgreSQL (Citus)を作成すると、citusという名前の既�
 
 ## `psql`でデータベースに接続する
 1. クラウドシェルの右上にある最大化ボックスをクリックして全画面にします。
-2. Bashプロンプトで、Psqlユーティリティを用いてAzure Database for PostgreSQLに接続します。最初の接続には最大2分かかる場合があります。以下のコマンドをコピー＆ペーストして[enter]を押します。
+2. Bashプロンプトで、`psql`ユーティリティを用いてAzure Database for PostgreSQLに接続します。最初の接続には最大2分かかる場合があります。以下のコマンドをコピー＆ペーストして[enter]を押します。
 
 ```
 psql "host=c.citushandsonlab.postgres.database.azure.com port=5432 dbname=citus user=citus password='xxxxxxxx' sslmode=require"
@@ -114,13 +114,13 @@ psql "host=c.citushandsonlab.postgres.database.azure.com port=5432 dbname=citus 
 
 ## テーブルを作成しスケールアウトする
 
-Psqlを使用してCosmos DB for PostgreSQL (Citus) コーディネーターノードに接続すると、いくつかの基本的なタスクを完了できます。
+`psql`を使用してCosmos DB for PostgreSQL (Citus) コーディネーターノードに接続すると、いくつかの基本的なタスクを完了できます。
 この経験では、主に分散テーブルとそれらに慣れることに焦点を当てます。
 
 これから作業するデータモデルは単純です：
-GitHubのユーザーデータとイベントデータ。イベントには、フォークの作成、組織に関連するgitコミットなどが含まれます。Psql経由で接続したら、テーブルを作成してみましょう。
+GitHubのユーザーデータとイベントデータ。イベントには、フォークの作成、組織に関連するgitコミットなどが含まれます。`psql`経由で接続したら、テーブルを作成してみましょう。
 
-3. Psqlコンソールで以下をコピー＆ペーストしてテーブルを作成します。
+3. `psql`コンソールで以下をコピー＆ペーストしてテーブルを作成します。
 
 ```
 CREATE TABLE github_events(
@@ -150,7 +150,7 @@ JSONデータ型を使用すると、柔軟なスキーマを1つの列に簡単
 
 データを読み込む前に、いくつかのインデックスを作成してみましょう。
 
-4. Psqlコンソールで以下をコピー＆ペーストしてインデックスを作成します。
+4. `psql`コンソールで以下をコピー＆ペーストしてインデックスを作成します。
 ```
 CREATE INDEX event_type_index ON github_events (event_type);
 CREATE INDEX payload_index ON github_events USING GIN (payload jsonb_path_ops);
@@ -160,7 +160,7 @@ CREATE INDEX payload_index ON github_events USING GIN (payload jsonb_path_ops);
 
 そのために、それをシャードするキーを指定する各テーブルに対してクエリを実行します。この例では、user_idのイベントテーブルとユーザーテーブルの両方をシャードします。
 
-5. Psqlコンソールで以下をコピー＆ペーストします。
+5. `psql`コンソールで以下をコピー＆ペーストします。
 ```
 SELECT create_distributed_table('github_events', 'user_id');
 SELECT create_distributed_table('github_users', 'user_id');
@@ -181,13 +181,13 @@ SELECT create_distributed_table('github_users', 'user_id');
 
 データをロードする準備が整いました。以下のコマンドでBashのクラウドシェルを「シェル実行」し、ファイルをダウンロードします。
 
-6. Psqlコンソールでデータファイルをダウンロードするために以下をコピー＆ペーストとします。
+6. `psql`コンソールでデータファイルをダウンロードするために以下をコピー＆ペーストとします。
 
 ```
 \! curl -O https://examples.citusdata.com/users.csv
 \! curl -O https://examples.citusdata.com/events.csv
 ```
-7. Psqlコンソールでデータファイルをロードするために以下をコピー＆ペーストします。
+7. `psql`コンソールでデータファイルをロードするために以下をコピー＆ペーストします。
 
 ```
 \copy github_events from 'events.csv' WITH CSV
@@ -197,14 +197,14 @@ SELECT create_distributed_table('github_users', 'user_id');
 
 ## クエリの実行
 ここから、実際にいくつかのクエリを実行するので、楽しい時間です。簡単なカウント(*)から始めて、読み込んだデータの量を確認します。
-8. Psqlコンソールでgithub_eventsテーブルのレコードカウントを取得するために以下をコピー＆ペーストします
+8. `psql`コンソールでgithub_eventsテーブルのレコードカウントを取得するために以下をコピー＆ペーストします
 ```
 SELECT count(*) from github_events;
 ```
 この単純なクエリは、先ほど作成されたシャードキーuser_idに基づいてコーディネーターがすべてのワーカーに対して伝播（プロパゲート）し、コーディネーターが集計したレコード数が返されました。
 JSONBペイロード列には、多くのデータがありますが、イベントの種類によって異なります。PushEventイベントには、プッシュの個別のコミットの数を含むサイズが含まれています。これを使用して、1時間あたりのコミットの合計数を検索できます。
 
-9. Psqlコンソールで時間あたりのコミット数を見るために以下をコピー＆ペーストします。
+9. `psql`コンソールで時間あたりのコミット数を見るために以下をコピー＆ペーストします。
 
 ```
 SELECT date_trunc('hour', created_at) AS hour,
@@ -219,7 +219,7 @@ ORDER BY hour;
 
 これまでのところ、クエリにはgithub_eventsテーブルだけが関係していましたが、この情報をgithub_usersテーブルと組み合わせることができます。ユーザーとイベントの両方を同じ識別子（user_id)でシャードしたので、一致するユーザーIDを持つ両方のテーブルの行は同じワーカーノードに配置され、簡単に結合できます。user_idでクエリを結合すると、Cosmos DB for PostgreSQL (Citus) コーディネーターは、ワーカーノードで並行して実行するために、結合の実行をシャード、つまりワーカーノード、に指示することになります。
 
-10. Psqlコンソールでレポジトリ数が最大のユーザを見つけるために以下をコピー＆ペーストします。
+10. `psql`コンソールでレポジトリ数が最大のユーザを見つけるために以下をコピー＆ペーストします。
 
 ```
 SELECT login, count(*)
@@ -245,7 +245,7 @@ LIMIT 20;
 
 -	Cosmos DB for PostgreSQL (Citus) を展開する方法
 -	Azureクラウドシェルの作り方
--	Psqlを用いたCosmos DB for PostgreSQL (Citus) への接続方法
+-	`psql`を用いたCosmos DB for PostgreSQL (Citus) への接続方法
 -	スキーマの作成方法、シャーディングキーの設定方法、サーバーグループへのデータのロード方法
 
 Cosmos DB for PostgreSQL (Citus) を使用すると、PostgreSQLデータベースクラスター（「サーバーグループ」と呼ばれる）にデータとクエリを分散できるため、サーバーグループ内のすべてのノードで、すべてのメモリ、コンピューティング、およびディスクが利用できるというパフォーマンス上の利点をアプリケーションに提供できます。
@@ -267,7 +267,7 @@ Cosmos DB for PostgreSQL (Citus) を使用すると、データベースが実�
 顧客がオンライン広告のパフォーマンスを追跡できるようにするマルチテナントSaaSアプリケーションのバックエンドの例を構築します。ユーザーはある瞬間に自らの会社（自分の会社）に関連するデータをリクエストするので、マルチテナントアプリケーションが向いているのは当然のことです。
 このマルチテナントSaaSアプリケーションの簡略化されたスキーマを検討することから始めましょう。アプリケーションは、広告キャンペーンを実行する複数の企業を追跡する必要があります。キャンペーンには多数の広告があり、各広告にはクリック数とインプレッションの記録が関連付けられています。
 以下はスキーマの例です。
-1. Psqlコンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして会社（テナント）とそのキャンペーンのテーブルを作成します。
+1. `psql`コンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして会社（テナント）とそのキャンペーンのテーブルを作成します。
 
 ```
 CREATE TABLE companies (
@@ -291,7 +291,7 @@ PRIMARY KEY (company_id, id)
 );
 ```
 
-2. Psqlコンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして会社の広告のテーブルを作成します。
+2. `psql`コンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして会社の広告のテーブルを作成します。
 
 ```
 CREATE TABLE ads (
@@ -310,7 +310,7 @@ REFERENCES campaigns (company_id, id)
 );
 ```
 
-3. Psqlコンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして各広告のクリック数とインプレッション数の状態を追跡します。
+3. `psql`コンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして各広告のクリック数とインプレッション数の状態を追跡します。
 
 ```
 CREATE TABLE clicks (
@@ -341,7 +341,7 @@ REFERENCES ads (company_id, id)
 );
 ```
 
-4. Psqlコンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして今作成したテーブルを確認します。
+4. `psql`コンソールに以下のCREATE TABLEコマンドをコピー＆ペーストして今作成したテーブルを確認します。
 
 ```
 \dt
@@ -367,7 +367,7 @@ Cosmos DB for PostgreSQL (Citus) では、テナントに関連するすべて�
 create_distributed_table 関数は、テーブルをノード間で分散する必要があり、それらのテーブルへの将来の着信クエリを分散実行用に計画する必要があることを Cosmos DB for PostgreSQL (Citus)  に通知します。この関数は、ワーカー ノード上のテーブルのシャードも作成します。
 この具体的な例では、company_id に基づいてデータベース全体でテーブルをシャーディングして作成したアプリケーションをスケーリングします。
 
-1. Psqlコンソールに以下をコピー＆ペーストして分散キー（シャード）を作成します。
+1. `psql`コンソールに以下をコピー＆ペーストして分散キー（シャード）を作成します。
 
 ```
 SELECT create_distributed_table('companies', 'id');
@@ -382,7 +382,7 @@ SELECT create_distributed_table('impressions', 'company_id');
 次の手順では、サンプル データをコマンド ラインからクラスターに読み込みます。
 
 ## シェルでデータをダウンロードし取得する
-1. Psqlコンソールに以下をコピー＆ペーストしてサンプルデータをダウンロードします。
+1. `psql`コンソールに以下をコピー＆ペーストしてサンプルデータをダウンロードします。
 ```
 \! curl -O https://examples.citusdata.com/mt_ref_arch/companies.csv
 \! curl -O https://examples.citusdata.com/mt_ref_arch/campaigns.csv
@@ -394,7 +394,7 @@ SELECT create_distributed_table('impressions', 'company_id');
 
 PostgreSQLの拡張機能であるCosmos DB for PostgreSQL (Citus) はCOPYコマンドを使用した一括読み込みをサポートします。ダウンロードしたデータを取り出し、ファイルを他の場所にダウンロードした場合は、正しいファイル パスを指定してください。
 
-2. Psqlコンソールに以下をコピー＆ペーストしてテーブルをロードします。
+2. `psql`コンソールに以下をコピー＆ペーストしてテーブルをロードします。
 ```
 \copy companies from 'companies.csv' with csv
 \copy campaigns from 'campaigns.csv' with csv
@@ -413,7 +413,7 @@ company_id のフィルターを含むアプリケーション クエリまた�
 
 アプリケーションが単一のテナントのデータを要求すると、データベースは単一のワーカー ノードでクエリを実行できます。シングル テナント クエリは、単一のテナント ID でフィルター処理します。たとえば、次のクエリは、広告とインプレッションに対して `company_id = 5` をフィルター処理します。
 
-1. Psqlコンソールに以下をコピー＆ペーストして単一のテナントのクエリと更新を実行します。
+1. `psql`コンソールに以下をコピー＆ペーストして単一のテナントのクエリと更新を実行します。
 ```
 -- campaigns with highest budget
 
@@ -432,7 +432,7 @@ WHERE company_id = 5;
 
 NoSQL データベースを使用してアプリケーションをスケーリングするユーザーが直面する一般的な問題は、トランザクションと結合機能が欠如していることです。ですが、Cosmos DB for PostgreSQL (Citus)  ではトランザクションは期待どおりに機能します。
 
-2. Psqlコンソールに以下をコピー＆ペーストしてトランザクション（更新クエリ）を実行します。
+2. `psql`コンソールに以下をコピー＆ペーストしてトランザクション（更新クエリ）を実行します。
 
 ```
 -- transactionally reallocate campaign budget money
@@ -453,7 +453,7 @@ COMMIT;
 
 SQL サポートの最後のデモとして集計関数とウィンドウ関数を含むクエリがあり、これは単一ノードのPostgreSQL の場合と同じように Cosmos DB for PostgreSQL (Citus)  で動作します。クエリは、各キャンペーンの広告をインプレッション数でランク付けします。
 
-3. Psqlコンソールに以下をコピー＆ペーストしてデータベースをまたぐ集計クエリを実行します。
+3. `psql`コンソールに以下をコピー＆ペーストしてデータベースをまたぐ集計クエリを実行します。
 ```
 SELECT a.campaign_id,
     Rank()
@@ -480,7 +480,7 @@ Limit 20;
 これまで、すべてのテーブルは company_id によって分散されていましたが、すべてのテナントで共有できるデータがあり、特にどのテナントにも “所属” が存在しない場合があります。たとえば、この例の広告プラットフォームを使用するすべての企業は、IP アドレスに基づいてオーディエンスの地理情報を取得する必要があるとします。単一ノードのデータベースでは、次のような geo-ip のルックアップ テーブルによってこれを実現できます。(現実的なテーブルはおそらく PostGIS を使用しますが、簡略化された例に準拠しています)。
 共有の地理情報を保持するテーブルを作成します。
 
-1. Psqlコンソールに以下をコピー＆ペーストしてgeo_ipsテーブルを作成します。
+1. `psql`コンソールに以下をコピー＆ペーストしてgeo_ipsテーブルを作成します。
 
 ```
 CREATE TABLE geo_ips (
@@ -494,7 +494,7 @@ CREATE INDEX ON geo_ips USING gist (addrs inet_ops);
 
 分散セットアップでこのテーブルを効率的に使用するには、geo_ips テーブルをクリック数、それも 1 つだけではなく、すべての会社の、と共に再配置する方法を見つける必要があります。この方法では、クエリ時にネットワーク トラフィックは発生しません。これをCosmos DB for PostgreSQL (Citus)  で行うには、geo_ips をすべてのワーカー ノードにテーブルのコピーを格納する参照テーブルとして指定します。
 
-2. Psqlコンソールに以下をコピー＆ペーストしてgeo_ipsテーブルを作成します。
+2. `psql`コンソールに以下をコピー＆ペーストしてgeo_ipsテーブルを作成します。
 
 ```
 -- Make synchronized copies of geo_ips on all workers
@@ -504,7 +504,7 @@ SELECT create_reference_table('geo_ips');
 
 参照テーブルはすべてのワーカー ノードにレプリケートされ、Cosmos DB for PostgreSQL (Citus)  は変更時に自動的に同期を維持します。create_distributed_table ではなく、create_reference_table と呼ばれることに注意してください。
 
-3. Psqlコンソールに以下をコピー＆ペーストしてgeo_ipsにデータをロードします。
+3. `psql`コンソールに以下をコピー＆ペーストしてgeo_ipsにデータをロードします。
 
 ```
 \copy geo_ips from 'geo_ips.csv' with csv
@@ -512,7 +512,7 @@ SELECT create_reference_table('geo_ips');
 
 これで、このテーブルでクリック数を結合すると、すべてのノードで効率的に実行されます。広告 290 をクリックしたすべてのユーザーの場所を尋ねることができます。
 
-4. Psqlコンソールに以下をコピー＆ペーストしてSELECTを実行します。
+4. `psql`コンソールに以下をコピー＆ペーストしてSELECTを実行します。
 
 ```
 SELECT c.id, clicked_at, latlon
@@ -526,7 +526,7 @@ AND c.ad_id = 290;
 マルチテナント システムのもう 1 つの課題は、すべてのテナントのスキーマの同期を維持することです。スキーマの変更は、すべてのテナントに一貫して反映する必要があります。Cosmos DB for PostgreSQL (Citus)  では、標準の PostgreSQL DDL (データ定義言語) コマンドを使用してテーブルのスキーマを変更するだけで、Cosmos DB for PostgreSQL (Citus)  は 2 フェーズ コミット (2PC) プロトコルを使用してコーディネータ ノードからワーカーに伝播します。
 たとえば、このアプリケーションの提供情報は、キャプション テキスト列を使用できます。コーディネータで標準 SQL を発行することで、テーブルに列を追加できます。
 
-1. Psqlコンソールに以下をコピー＆ペーストして新しい列を追加します。
+1. `psql`コンソールに以下をコピー＆ペーストして新しい列を追加します。
 ```
 ALTER TABLE ads
 ADD COLUMN caption text;
@@ -541,7 +541,7 @@ ADD COLUMN caption text;
 この例では、テナント (company_id = 5 など) は、JSONB 列を使用して、ユーザーがモバイル デバイス上にあるかどうかを追跡します。
 
 
-1. Psqlコンソールに以下をコピー＆ペーストしてモバイルデバイスである会社 5のユーザを検索します。
+1. `psql`コンソールに以下をコピー＆ペーストしてモバイルデバイスである会社 5のユーザを検索します。
 ```
 SELECT
 user_data->>'is_mobile' AS is_mobile,
@@ -552,7 +552,7 @@ GROUP BY user_data->>'is_mobile'
 ORDER BY count DESC;
 ```
 
-2. Psqlコンソールに以下をコピー＆ペーストして部分インデックスを作成することによりクエリーを最適化します。
+2. `psql`コンソールに以下をコピー＆ペーストして部分インデックスを作成することによりクエリーを最適化します。
 ```
 CREATE INDEX click_user_data_is_mobile
 ON clicks ((user_data->>'is_mobile'))
@@ -561,7 +561,7 @@ WHERE company_id = 5;
 
 PostgreSQLはJSONB列のGINインデックスをサポートしています。JSONB 列に GIN インデックスを作成すると、その JSON ドキュメント内のすべてのキーと値にインデックスが作成されます。これにより、?, ?|、?&などのいくつかのJSONB 演算子が高速化されます。
 
-3. Psqlコンソールに以下をコピー＆ペーストしてGINインデックスを作成します。
+3. `psql`コンソールに以下をコピー＆ペーストしてGINインデックスを作成します。
 ```
 CREATE INDEX click_user_data
 ON clicks USING gin (user_data);
@@ -582,7 +582,7 @@ Limit 5;
 このチュートリアルでは、Cosmos DB for PostgreSQL (Citus) を使い以下の方法を学びました。
 
 - Cosmos DB for PostgreSQL (Citus) サーバグループの作成
-- Psqlユーティリティを使ったスキーマの作成
+- `psql`ユーティリティを使ったスキーマの作成
 - ノード間でのテーブルのシャード
 - サンプルデータの取得
 - テナントデータのクエリー
@@ -615,7 +615,7 @@ Cosmos DB for PostgreSQL (Citus)  は、複数のワーカー/リソース間で
 ## アプリケーションのテーブルを作成する
 http_requests のテーブル、分単位の集計、および最後のロールアップの位置を維持するテーブルを作成してみましょう。
 
-1. Psqlコンソールに以下のCREATE TABLEコマンドをコピー＆ペーストしてテーブルを作成します。
+1. `psql`コンソールに以下のCREATE TABLEコマンドをコピー＆ペーストしてテーブルを作成します。
 ```
 -- this is run on the coordinator
 
@@ -648,7 +648,7 @@ CHECK (minute = date_trunc('minute', minute))
 );
 ```
 
-2. Psqlコンソールに以下をコピー＆ペーストして作成したものを確認します。
+2. `psql`コンソールに以下をコピー＆ペーストして作成したものを確認します。
 
 ```
 \dt
@@ -657,7 +657,7 @@ CHECK (minute = date_trunc('minute', minute))
 ## ノード間にテーブルをシャードする
 Cosmos DB for PostgreSQL (Citus) をデプロイすると、ユーザーが指定した列の値に基づいて、異なるノードにテーブルの行が格納されます。この「分散列」は、ノード間でデータをシャードする方法を示します。分散列をsite_id、つまりシャードキーに設定してみましょう。
 
-3. Psqlコンソールに以下をコピー＆ペーストしてテーブルをシャードします。
+3. `psql`コンソールに以下をコピー＆ペーストしてテーブルをシャードします。
 
 ```
 SELECT create_distributed_table('http_request',      'site_id');
@@ -672,9 +672,9 @@ SELECT create_distributed_table('http_request_1min', 'site_id');
 > 注: create_distributed_table UDF (ユーザー定義関数) は、シャードカウントのデフォルト値を使用します。デフォルトは32です。HTTPトラフィックの監視と同様のリアルタイム分析のユースケースでは、クラスター内のCPUコアと同じ数のシャードを使用することをお勧めします。これにより、新しいワーカーノードを追加した後、クラスター全体でデータのバランスを取り直すことができます。シャードカウントは、citus.shard_countを使用して設定できます。これは、create_distributed_tableコマンドを実行する前に構成する必要があります。
 
 ## データの生成
-システムはデータを受け入れ、クエリを提供する準備が整いました。次の一連の命令では、この資料の他のコマンドを続行しながら、バックグラウンドでPsqlコンソールで次のループを実行し続けます。それは1秒または2秒ごとに偽のデータを生成します。
+システムはデータを受け入れ、クエリを提供する準備が整いました。次の一連の命令では、この資料の他のコマンドを続行しながら、バックグラウンドで`psql`コンソールで次のループを実行し続けます。それは1秒または2秒ごとに偽のデータを生成します。
 
-4. クラウドシェルのPsqlコンソールに以下をコピー＆ペーストしてbashコンソールから抜けます。
+4. クラウドシェルの`psql`コンソールに以下をコピー＆ペーストしてbashコンソールから抜けます。
 
 ```
 \q
@@ -730,26 +730,26 @@ psql "host=c.citushandsonlab.postgres.database.azure.com port=5432 dbname=citus 
 
 Cosmos DB for PostgreSQL (Citus) ホスティングオプションを使用すると、複数のノードがクエリを並列処理して高速化できます。たとえば、データベースはワーカーノードのSUMやCOUNTなどの集計を計算し、結果を最終的な回答に結合します。
 
-11. クラウドシェルのbashコンソールに以下をコピー＆ペーストして、再度Psqlを実行するために[Enter]を押します。
+11. クラウドシェルのbashコンソールに以下をコピー＆ペーストして、再度`psql`を実行するために[Enter]を押します。
 
 ```
 psql "host=c.citushandsonlab.postgres.database.azure.com port=5432 dbname=citus user=citus password='spxxxxxxxx' sslmode=require"
 ```
 
-12. クラウドシェルのPsqlコンソールに以下のコマンドを入力し、リアルタイムの負荷が生成されているかを検証します。
+12. クラウドシェルの`psql`コンソールに以下のコマンドを入力し、リアルタイムの負荷が生成されているかを検証します。
 
 ```
 SELECT Count(*) FROM http_request;
 ```
 
-13. クラウドシェルのPsqlコンソールに以下のコマンドを複数回入力し、カウントが増加していることを確認します。
+13. クラウドシェルの`psql`コンソールに以下のコマンドを複数回入力し、カウントが増加していることを確認します。
 ```
 SELECT Count(*) FROM http_request;
 ```
 
 このクエリを実行して、1 分あたりの Web 要求といくつかの統計情報をカウントします。
 
-14. Psqlコンソールに以下をコピー＆ペーストし、サイトに対する平均応答時間を確認します。
+14. `psql`コンソールに以下をコピー＆ペーストし、サイトに対する平均応答時間を確認します。
 
 ```
 SELECT
@@ -778,7 +778,7 @@ LIMIT 15;
 このロールアップをより簡単に実行するには、plpgsql関数に配置します。
 http_request_1minを設定するには、SELECTに挿入を定期的に実行します。これは、テーブルがコロケーションされているために可能となります。次の関数は、便宜上ロールアップクエリをラップします。
 
-1. Psqlコンソールに以下をコピー＆ペーストし、rollup_http_request関数を作成します。
+1. `psql`コンソールに以下をコピー＆ペーストし、rollup_http_request関数を作成します。
 
 ```
 -- initialize to a time long ago
@@ -812,7 +812,7 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-2. Psqlコンソールに以下をコピー＆ペーストし、ロールアップ関数を実行します。
+2. `psql`コンソールに以下をコピー＆ペーストし、ロールアップ関数を実行します。
 
 ```
 SELECT rollup_http_request();
@@ -826,7 +826,7 @@ SELECT cron.schedule('* * * * *','SELECT rollup_http_request();');
 
 以前のダッシュボードクエリよりもずっと良くなっています。１分間の集計ロールアップテーブルを照会して、以前と同じレポートを取得できます。
 
-3. Psqlコンソールに以下をコピー＆ペーストし、１分毎の集計テーブルでのクエリを実行します。
+3. `psql`コンソールに以下をコピー＆ペーストし、１分毎の集計テーブルでのクエリを実行します。
 
 ```
 SELECT site_id, ingest_time as minute, request_count,
@@ -855,17 +855,17 @@ DELETE FROM http_request_1min WHERE ingest_time < now() - interval '1 month';
 HTTP運用分析におけるよくあるクエリーは、おおよその個別の数を扱います: 先月のサイトを訪問したユニーク訪問者数はいくつですか。この質問に正確に答えるには、以前にサイトを訪れたすべての訪問者のリストをロールアップテーブルに格納する必要があります。しかし、おおよその答えははるかに管理しやすくなります。
 ハイパーログログ (HLL) と呼ばれるデータ型は、クエリにほぼ答えることができます。セット内のユニークな要素の数を知るには、驚くほど少ないスペースで十分です。その正確さは調節することができます。最大2.2%のエラーがあるものの、1280バイトのみで、何百億という単位のユニーク訪問者数を数えることができるもの、を使用します。
 先月に顧客企業のサイトを訪問したユニークなIPアドレスの数など、グローバルクエリを実行する場合は、同様の問題が発生します。HLLがない場合、ワーカーからコーディネータに送信されるクエリ結果には、コーディネータが重複除外しないとならないIPアドレスの一覧が含まれます。これは、多くのネットワークトラフィックと計算の両方が必要になってしまいます。HLLを使用すると、クエリの速度を大幅に向上できます。
-Citus を自分でインストールする場合は、まずHLL拡張機能をインストールして有効にする必要があります。PsqlコマンドCREATE EXTENSION hllを実行します。この場合、すべてのノードで実行する必要があります。Cosmos DB for PostgreSQL (Citus) には、他の便利な拡張機能と共にHLLが既にインストールされているので、この作業はAzureでは必要となりません。
+Citus を自分でインストールする場合は、まずHLL拡張機能をインストールして有効にする必要があります。`psql`コマンドCREATE EXTENSION hllを実行します。この場合、すべてのノードで実行する必要があります。Cosmos DB for PostgreSQL (Citus) には、他の便利な拡張機能と共にHLLが既にインストールされているので、この作業はAzureでは必要となりません。
 これで、HLLを使用したロールアップでIPアドレスを追跡する準備ができました。最初にロールアップ テーブルに列を追加します。
 
-1. Psqlコンソールに以下をコピー＆ペーストし、http_request_1minテーブルを変更します。
+1. `psql`コンソールに以下をコピー＆ペーストし、http_request_1minテーブルを変更します。
 ```
 ALTER TABLE http_request_1min ADD COLUMN distinct_ip_addresses hll;
 ```
 
 次に、カスタム集計を使用して列を設定します。
 
-2. Psqlコンソールに以下をコピー＆ペーストし、ロールアップ関数のクエリに追加します。
+2. `psql`コンソールに以下をコピー＆ペーストし、ロールアップ関数のクエリに追加します。
 ```
 -- function to do the rollup
 CREATE OR REPLACE FUNCTION rollup_http_request() RETURNS void AS $$
@@ -902,14 +902,14 @@ INSERT INTOステートメントにdistinct_ip_addressが追加され、
 SELECTにはhll_add_agg(hll_hash_text(ip_address)) AS distinct_ip_addressがrollup_http_request関数に追加されました。
 
 
-3. Psqlコンソールに以下をコピー＆ペーストし、更新された関数を実行します。
+3. `psql`コンソールに以下をコピー＆ペーストし、更新された関数を実行します。
 ```
 SELECT rollup_http_request();
 ```
 
 ダッシュボードクエリはもう少し複雑です。hll_cardinality関数を呼び出すことによって、異なるIPアドレスの数を読み取る必要があります。
 
-4. Psqlコンソールに以下をコピー＆ペーストし、hll_cardinality関数を利用したレポートを生成します。
+4. `psql`コンソールに以下をコピー＆ペーストし、hll_cardinality関数を利用したレポートを生成します。
 
 ```
 SELECT site_id, ingest_time as minute, request_count,
@@ -923,7 +923,7 @@ LIMIT 15;
 HLLは単に高速なだけではなく、以前はできなかったことができます。ロールアップを実行したが、HLL を使用する代わりに、正確な一意のカウントを保存したとします。これは正常に動作しますが、「この1週間に、生データを破棄したセッションはいくつあったか」などのクエリには答えられません。
 HLLを使用すれば簡単です。次のクエリを使用して、一定期間における個別のIP数を計算できます。
 
-5. Psqlコンソールに以下をコピー＆ペーストし、期間中の異なるIP数を計算します。
+5. `psql`コンソールに以下をコピー＆ペーストし、期間中の異なるIP数を計算します。
 ```
 SELECT hll_cardinality(hll_union_agg(distinct_ip_addresses))::bigint
 FROM http_request_1min
@@ -935,12 +935,12 @@ LIMIT 15;
 
 Cosmos DB for PostgreSQL (Citus) は、Postgresに組み込みでサポートされている非構造化データ型とうまく機能します。これを実証するために、各国から来た訪問者数を追跡してみましょう。半構造化データ型を使用すると、個々の国ごとに列を追加する必要がなくなります。PostgreSQLには、JSONデータを格納するためのJSONBデータ型とJSONデータ型があります。データ型としてJSONBが推奨される理由は、a) JSONと比較してJSONBにはインデックス作成機能 (GINおよびGIST) があり、b) JSONBはバイナリ形式であるため圧縮機能が提供される、ためです。ここでは、JSONB列をデータモデルに組み込む方法を示します。
 
-1. Psqlコンソールに以下をコピー＆ペーストし、ロールアップのテーブルにJSONB列を新たに追加します。
+1. `psql`コンソールに以下をコピー＆ペーストし、ロールアップのテーブルにJSONB列を新たに追加します。
 ```
 ALTER TABLE http_request_1min ADD COLUMN country_counters JSONB;
 ```
 
-2. Psqlコンソールに以下をコピー＆ペーストし、rollup_http_requestをcountry_countersで更新します。
+2. `psql`コンソールに以下をコピー＆ペーストし、rollup_http_requestをcountry_countersで更新します。
 ```
 -- function to do the rollup
 CREATE OR REPLACE FUNCTION rollup_http_request() RETURNS void AS $$
@@ -980,13 +980,13 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-3. Psqlコンソールに以下をコピー＆ペーストし、更新した関数を実行します。
+3. `psql`コンソールに以下をコピー＆ペーストし、更新した関数を実行します。
 ```
 SELECT rollup_http_request();
 ```
 ダッシュボードでアメリカから送信されたリクエストの数を取得する場合は、ダッシュボードクエリを次のように変更できます。
 
-4. Psqlコンソールに以下をコピー＆ペーストし、アメリカからのリクエストを確認します。
+4. `psql`コンソールに以下をコピー＆ペーストし、アメリカからのリクエストを確認します。
 ```
 SELECT
 request_count, success_count, error_count, average_response_time_msec, COALESCE(country_counters->>'USA', '0')::int AS american_visitors
@@ -997,7 +997,7 @@ LIMIT 15;
 ## まとめ
 このチュートリアルでは、Azure Database for PostgreSQL Cosmos DB for PostgreSQL (Citus) を使い以下をどのように実行するかを学びました。
 - バックグラウンドでリアルタイムの負荷を生成する
-- Psql 関数を作成して更新する
+- `psql` 関数を作成して更新する
 - アプリケーションがスケールできるようにデータをロールアップする
 - 古いデータの有効期限を切る
 - 個別のカウントに関するレポート
