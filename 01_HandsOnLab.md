@@ -1109,8 +1109,7 @@ LIMIT 15;
 
 追加の参照情報
 - [Timeseries Data](https://docs.citusdata.com/en/v11.0/use_cases/timeseries.html?highlight=partition#automating-partition-creation)
-- [Archiving with Columnar Storage]
-(https://docs.citusdata.com/en/v11.0/use_cases/timeseries.html?highlight=partition#archiving-with-columnar-storage)
+- [Archiving with Columnar Storage](https://docs.citusdata.com/en/v11.0/use_cases/timeseries.html?highlight=partition#archiving-with-columnar-storage)
 - [GitHub - PostgreSQL Cron job](https://github.com/citusdata/pg_cron)
 - [GitHub - HLL HyperLogLog](https://github.com/citusdata/postgresql-hll)
 - [When to use unstructured datatypes in Postgres–Hstore vs. JSON vs. JSONB](https://www.citusdata.com/blog/2016/07/14/choosing-nosql-hstore-json-jsonb/) 
