@@ -748,7 +748,7 @@ SELECT create_distributed_table('http_request_1min', 'site_id');
 
 5. クラウドシェルのバナー上の編集アイコンをクリックします
 
-<IMG>
+![](../assets/05.png)
 
 6. クラウドシェルのエディターに、以下をコピー＆ペーストして（エディターにペーストするには、[control] + [v]を使います）、http_requestの負荷を生成させます。
 
