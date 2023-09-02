@@ -33,7 +33,7 @@ Cosmos DB for PostgreSQL (Citus)は、（フォークではなく）拡張機能
 7. [サインインの状態を維持しますか?] とタイトルがついた、[いいえ]と[はい]ボタンがあるポップアップが表示されるかもしれません。[いいえ]を選択します。
 8. Welcome to Microsoft AzureとタイトルがついたStart TourとMaybe Laterボタンがあるポップアップが表示されるかもしれません。Maybe Laterを選択します。
 
-# Cosmos DB for PostgreSQL (Citus) の作成
+## Cosmos DB for PostgreSQL (Citus) の作成
 これらの手順では、Azureポータルを使用してCosmos DB for PostgreSQL (Citus) サーバーグループを作成する方法について説明します。
 
 クラスターの規模によって作成に必要な時間は変わりますが、このハンズオンで作成するサーバーグループの規模であれば、通常約10分かかります。以下の手順では、プロセスを通じてこれがいかにシンプルで簡単であるかが分かります。
@@ -86,10 +86,10 @@ curl -s https://ifconfig.co
 
 > 注: bashコンソールでペーストするには右クリック後にpasteを選択します。
 
-# Cosmos DB for PostgreSQL (Citus) を設定する
+## Cosmos DB for PostgreSQL (Citus) を設定する
 Cosmos DB for PostgreSQL (Citus) は、サーバーレベルでファイアウォールを使用します。既定では、ファイアウォールはすべての外部アプリケーションとツールがコーディネーターノードおよび内部のデータベースに接続するのを防ぎます。特定のIPアドレス範囲からの接続を許可するルールを追加する必要があります。
 
-## サーバーレベルのファイアウォールのルールを設定する
+### サーバーレベルのファイアウォールのルールを設定する
 1. Hyperscaleサーバーグループの[ネットワーク]を選択します。
 2. [ネットワーク接続]ペインの[パブリックアクセス]内で、クラウドシェルで確認した[IPアドレス]を[開始IPアドレス]と[終了IPアドレス]に入力します。
 3. [ファイアウォール規則名]に[CloudShell]と入力します。
@@ -97,14 +97,14 @@ Cosmos DB for PostgreSQL (Citus) は、サーバーレベルでファイアウ�
 
 > 注: Cosmos DB for PostgreSQL (Citus) サーバーは5432/TCPポートを介して通信します。企業ネットワーク内から接続しようとしている場合、5432/TCPポートへの送信トラフィックは、ネットワークのファイアウォールで許可されない場合があります。その場合は、IT部門が5432/TCPポートへの通信を許可しない限り、Cosmos DB for PostgreSQL (Citus) サーバーに接続できません。
 
-# Cosmos DB for PostgreSQL (Citus)に接続する
+## Cosmos DB for PostgreSQL (Citus)に接続する
 Cosmos DB for PostgreSQL (Citus)を作成すると、citusという名前の既定のデータベースが作成されます。
 
 データベースサーバーに接続するには、接続文字列と管理者パスワードが必要です。最初の接続には最大2分かかる場合があります。
 
 何らかの理由でシェルがタイムアウトして再起動した場合は、`curl -s https://ifconfig.co`コマンドをもう一度実行し、ファイアウォールが新しいIPアドレスで更新されていることを確認する必要があります。
 
-## `psql`でデータベースに接続する
+### `psql`でデータベースに接続する
 1. クラウドシェルの右上にある最大化ボックスをクリックして全画面にします。
 2. Bashプロンプトで、`psql`ユーティリティを用いてAzure Database for PostgreSQLに接続します。最初の接続には最大2分かかる場合があります。以下のコマンドをコピー＆ペーストして[enter]を押します。
 
