@@ -129,23 +129,23 @@ psql "host=c.citushandsonlab.postgres.database.azure.com port=5432 dbname=citus 
 
 ```
 CREATE TABLE github_events(
-event_id bigint,
-event_type text,
-event_public boolean,
-repo_id bigint,
-payload jsonb,
-repo jsonb,
-user_id bigint,
-org jsonb,
-created_at timestamp
+    event_id bigint,
+    event_type text,
+    event_public boolean,
+    repo_id bigint,
+    payload jsonb,
+    repo jsonb,
+    user_id bigint,
+    org jsonb,
+    created_at timestamp
 );
 CREATE TABLE github_users(
-user_id bigint,
-url text,
-login text,
-avatar_url text,
-gravatar_id text,
-display_login text
+    user_id bigint,
+    url text,
+    login text,
+    avatar_url text,
+    gravatar_id text,
+    display_login text
 );
 ```
 
@@ -191,13 +191,13 @@ SELECT create_distributed_table('github_users', 'user_id');
 
 データをロードする準備が整いました。以下のコマンドでBashのクラウドシェルを「シェル実行」し、ファイルをダウンロードします。
 
-6. `psql`コンソールでデータファイルをダウンロードするために以下をコピー＆ペーストとします。
+6. `psql`コンソールでデータファイルをダウンロードするために以下を *1行ずつ* コピー＆ペーストします。
 
 ```
 \! curl -O https://examples.citusdata.com/users.csv
 \! curl -O https://examples.citusdata.com/events.csv
 ```
-7. `psql`コンソールでデータファイルをロードするために以下をコピー＆ペーストします。
+7. `psql`コンソールでデータファイルをロードするために以下を *1行ずつ* コピー＆ペーストします。
 
 ```
 \copy github_events from 'events.csv' WITH CSV
