@@ -17,7 +17,7 @@ Cosmos DB for PostgreSQL (Citus)は、（フォークではなく）拡張機能
 
 各クエリについて、コーディネーターは、それを単一のワーカーにルーティングするか、必要なデータが単一あるいは複数のワーカーに存在するかに応じて、クエリをいくつかに並列化します。Cosmos DB for PostgreSQL (Citus)が複数のワーカーにクエリを分散する方法に関するシナリオを次に示します。
 
-<IMG>
+![](./assets/01.png)
 
 # Cosmos DB for PostgreSQL (Citus) を使ってみよう
 まず、提供された資格情報を使用してAzureポータルにログインする必要があります。
