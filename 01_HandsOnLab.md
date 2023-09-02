@@ -16,12 +16,12 @@ Cosmos DB for PostgreSQL(Citus) は、スケールアウトするために構築
 ## Azureポータルへのサイン・イン
 1. Azure Portalに既にログインしている場合は、次のページにスキップします。このウィンドウの右下にあるNextをクリックします。
 2. ブラウザで `https://portal.azure.com` を開き、ブラウザのウインドウを最大化します。
-3. *[アカウントを選択する]* というダイアログが表示されたら、*[別のアカウントを使用する]* を選択します。
-4. *[サインイン]* ダイアログの、*[メール、電話、Skype]* フィールドに
-`userxxxxxx@cloudplatimmersionlabs.onmicrosoft.com` を入力し *[次へ]* をクリックします。
-5. *[パスワード]* フィールドに`xxxxxxxx`を入力します。
-6. *[サインイン]* をクリックします。
-7. *[サインインの状態を維持しますか?]* とタイトルがついた、[いいえ]と[はい]ボタンがあるポップアップが表示されるかもしれません。[いいえ]を選択します。
+3. [アカウントを選択する] というダイアログが表示されたら、[別のアカウントを使用する] を選択します。
+4. [サインイン] ダイアログの、[メール、電話、Skype] フィールドに
+`userxxxxxx@cloudplatimmersionlabs.onmicrosoft.com` を入力し [次へ] をクリックします。
+5. [パスワード] フィールドに`xxxxxxxx`を入力します。
+6. [サインイン] をクリックします。
+7. [サインインの状態を維持しますか?] とタイトルがついた、[いいえ]と[はい]ボタンがあるポップアップが表示されるかもしれません。[いいえ]を選択します。
 8. Welcome to Microsoft AzureとタイトルがついたStart TourとMaybe Laterボタンがあるポップアップが表示されるかもしれません。Maybe Laterを選択します。
 
 # Cosmos DB for PostgreSQL (Citus) の作成
@@ -29,7 +29,7 @@ Cosmos DB for PostgreSQL(Citus) は、スケールアウトするために構築
 
 ## Cosmos DB for PostgreSQL (Citus) サーバーグループを作成する
 次の手順に従って、Azureポータルを使用してCosmos DB for PostgreSQL (Citus) サーバーグループを作成するプロセスを理解します。
-1. Azureポータルの左上にある *[+リソースの作成]* をクリックします。
+1. Azureポータルの左上にある [+リソースの作成] をクリックします。
 2. Azure Marketplaceの[リソースの作成]ページで[データベース]を選択し、[人気のAzureサービス]ページで[Cosmos DB]を選択します。
 3. [PostgreSQLデプロイオプションのAzureデータベースの選択]ページで、[Cosmos DB for PostgreSQL (Citus) サーバーグループ]の下の[作成]ボタンをクリックします。
 4. 以下の情報を[Cosmos DB for PostgreSQL (Citus)サーバーグループ]の基本タブに入力します。
