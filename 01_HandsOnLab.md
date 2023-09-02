@@ -656,7 +656,9 @@ Limit 5;
        - [Java](https://www.citusdata.com/blog/2018/02/13/using-hibernate-and-spring-to-build-multitenant-java-apps/)
 
 - マルチテナントフィルタを全てのクエリに自動的に追加するライブラリ
+  
        - [Rails用のactiverecord-multi-tenant](https://github.com/citusdata/activerecord-multi-tenant) ライブラリ
+
        - [Django用のdjango-multitenant](https://github.com/citusdata/django-multitenant) ライブラリ
 
 # リアルタイムダッシュボード
