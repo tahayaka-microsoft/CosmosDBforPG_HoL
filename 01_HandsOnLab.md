@@ -650,20 +650,14 @@ Limit 5;
 追加のドキュメントにも興味があるかもしれません。
 
 - Migration Guides
-
-       - [Ruby on Rails](https://docs.citusdata.com/en/v11.0/develop/migration_mt_ror.html)
-
-       - [Django](https://docs.citusdata.com/en/v11.0/develop/migration_mt_django.html)
-
-       - [ASP.NET](https://docs.citusdata.com/en/v11.0/develop/migration_mt_asp.html)
-
-       - [Java](https://www.citusdata.com/blog/2018/02/13/using-hibernate-and-spring-to-build-multitenant-java-apps/)
+ - [Ruby on Rails](https://docs.citusdata.com/en/v11.0/develop/migration_mt_ror.html)
+ - [Django](https://docs.citusdata.com/en/v11.0/develop/migration_mt_django.html)
+ - [ASP.NET](https://docs.citusdata.com/en/v11.0/develop/migration_mt_asp.html)
+ - [Java](https://www.citusdata.com/blog/2018/02/13/using-hibernate-and-spring-to-build-multitenant-java-apps/)
 
 - マルチテナントフィルタを全てのクエリに自動的に追加するライブラリ
-  
-       - [Rails用のactiverecord-multi-tenant](https://github.com/citusdata/activerecord-multi-tenant) ライブラリ
-
-       - [Django用のdjango-multitenant](https://github.com/citusdata/django-multitenant) ライブラリ
+ - [Rails用のactiverecord-multi-tenant](https://github.com/citusdata/activerecord-multi-tenant) ライブラリ
+ - [Django用のdjango-multitenant](https://github.com/citusdata/django-multitenant) ライブラリ
 
 # リアルタイムダッシュボード
 
