@@ -107,7 +107,7 @@ Cosmos DB for PostgreSQL (Citus)を作成すると、citusという名前の既�
 
 ### `psql`でデータベースに接続する
 1. クラウドシェルの右上にある最大化ボックスをクリックして全画面にします。
-2. Bashプロンプトで、`psql`ユーティリティを用いてAzure Database for PostgreSQLに接続します。最初の接続には最大2分かかる場合があります。以下のコマンドをコピー＆ペーストして[enter]を押します。
+2. Bashプロンプトで、`psql`ユーティリティを用いてCosmos DB for PostgreSQL (Citus)に接続します。最初の接続には最大2分かかる場合があります。以下のコマンドをコピー＆ペーストして[enter]を押します。
 
 ```
 psql "host=c.citushandsonlab.postgres.database.azure.com port=5432 dbname=citus user=citus password='xxxxxxxx' sslmode=require"
@@ -1113,7 +1113,7 @@ LIMIT 15;
 ```
 
 ## 5.10 まとめ
-このチュートリアルでは、Azure Database for PostgreSQL Cosmos DB for PostgreSQL (Citus) を使い以下をどのように実行するかを学びました。
+このチュートリアルでは、Cosmos DB for PostgreSQL (Citus) を使い以下をどのように実行するかを学びました。
 - バックグラウンドでリアルタイムの負荷を生成する
 - `psql` 関数を作成して更新する
 - アプリケーションがスケールできるようにデータをロールアップする
