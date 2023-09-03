@@ -289,23 +289,23 @@ Cosmos DB for PostgreSQL (Citus) を使用すると、データベースが実�
 
 ```
 CREATE TABLE companies (
-id bigserial PRIMARY KEY,
-name text NOT NULL,
-image_url text,
-created_at timestamp without time zone NOT NULL,
-updated_at timestamp without time zone NOT NULL
+    id bigserial PRIMARY KEY,
+    name text NOT NULL,
+    image_url text,
+    created_at timestamp without time zone NOT NULL,
+    updated_at timestamp without time zone NOT NULL
 );
 CREATE TABLE campaigns (
-id bigserial,
-company_id bigint REFERENCES companies (id),
-name text NOT NULL,
-cost_model text NOT NULL,
-state text NOT NULL,
-monthly_budget bigint,
-blacklisted_site_urls text[],
-created_at timestamp without time zone NOT NULL,
-updated_at timestamp without time zone NOT NULL,
-PRIMARY KEY (company_id, id)
+    id bigserial,
+    company_id bigint REFERENCES companies (id),
+    name text NOT NULL,
+    cost_model text NOT NULL,
+    state text NOT NULL,
+    monthly_budget bigint,
+    blacklisted_site_urls text[],
+    created_at timestamp without time zone NOT NULL,
+    updated_at timestamp without time zone NOT NULL,
+    PRIMARY KEY (company_id, id)
 );
 ```
 
