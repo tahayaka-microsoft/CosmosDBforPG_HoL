@@ -313,18 +313,18 @@ CREATE TABLE campaigns (
 
 ```
 CREATE TABLE ads (
-id bigserial,
-company_id bigint,
-campaign_id bigint,
-name text NOT NULL,
-image_url text,
-target_url text,
-impressions_count bigint DEFAULT 0,
-clicks_count bigint DEFAULT 0, created_at timestamp without time zone NOT NULL,
-updated_at timestamp without time zone NOT NULL,
-PRIMARY KEY (company_id, id),
-FOREIGN KEY (company_id, campaign_id)
-REFERENCES campaigns (company_id, id)
+    id bigserial,
+    company_id bigint,
+    campaign_id bigint,
+    name text NOT NULL,
+    image_url text,
+    target_url text,
+    impressions_count bigint DEFAULT 0,
+    clicks_count bigint DEFAULT 0, created_at timestamp without time zone NOT NULL,
+    updated_at timestamp without time zone NOT NULL,
+    PRIMARY KEY (company_id, id),
+    FOREIGN KEY (company_id, campaign_id)
+    REFERENCES campaigns (company_id, id)
 );
 ```
 
@@ -332,30 +332,30 @@ REFERENCES campaigns (company_id, id)
 
 ```
 CREATE TABLE clicks (
-id bigserial,
-company_id bigint,
-ad_id bigint,
-clicked_at timestamp without time zone NOT NULL,
-site_url text NOT NULL,
-cost_per_click_usd numeric(20,10),
-user_ip inet NOT NULL,
-user_data jsonb NOT NULL,
-PRIMARY KEY (company_id, id),
-FOREIGN KEY (company_id, ad_id)
-REFERENCES ads (company_id, id)
+    id bigserial,
+    company_id bigint,
+    ad_id bigint,
+    clicked_at timestamp without time zone NOT NULL,
+    site_url text NOT NULL,
+    cost_per_click_usd numeric(20,10),
+    user_ip inet NOT NULL,
+    user_data jsonb NOT NULL,
+    PRIMARY KEY (company_id, id),
+    FOREIGN KEY (company_id, ad_id)
+    REFERENCES ads (company_id, id)
 );
 CREATE TABLE impressions (
-id bigserial,
-company_id bigint,
-ad_id bigint,
-seen_at timestamp without time zone NOT NULL,
-site_url text NOT NULL,
-cost_per_impression_usd numeric(20,10),
-user_ip inet NOT NULL,
-user_data jsonb NOT NULL,
-PRIMARY KEY (company_id, id),
-FOREIGN KEY (company_id, ad_id)
-REFERENCES ads (company_id, id)
+    id bigserial,
+    company_id bigint,
+    ad_id bigint,
+    seen_at timestamp without time zone NOT NULL,
+    site_url text NOT NULL,
+    cost_per_impression_usd numeric(20,10),
+    user_ip inet NOT NULL,
+    user_data jsonb NOT NULL,
+    PRIMARY KEY (company_id, id),
+    FOREIGN KEY (company_id, ad_id)
+    REFERENCES ads (company_id, id)
 );
 ```
 
@@ -701,31 +701,31 @@ http_requests のテーブル、分単位の集計、および最後のロール
 -- this is run on the coordinator
 
 CREATE TABLE http_request (
-site_id INT,
-ingest_time TIMESTAMPTZ DEFAULT now(),
-url TEXT,
-request_country TEXT,
-ip_address TEXT,
-status_code INT,
-response_time_msec INT
+    site_id INT,
+    ingest_time TIMESTAMPTZ DEFAULT now(),
+    url TEXT,
+    request_country TEXT,
+    ip_address TEXT,
+    status_code INT,
+    response_time_msec INT
 );
 
 CREATE TABLE http_request_1min (
-site_id INT,
-ingest_time TIMESTAMPTZ, -- which minute this row represents
-error_count INT,
-success_count INT,
-request_count INT,
-average_response_time_msec INT,
-CHECK (request_count = error_count + success_count),
-CHECK (ingest_time = date_trunc('minute', ingest_time))
+    site_id INT,
+    ingest_time TIMESTAMPTZ, -- which minute this row represents
+    error_count INT,
+    success_count INT,
+    request_count INT,
+    average_response_time_msec INT,
+    CHECK (request_count = error_count + success_count),
+    CHECK (ingest_time = date_trunc('minute', ingest_time))
 );
 
 CREATE INDEX http_request_1min_idx ON http_request_1min (site_id, ingest_time);
 
 CREATE TABLE latest_rollup (
-minute timestamptz PRIMARY KEY,
-CHECK (minute = date_trunc('minute', minute))
+    minute timestamptz PRIMARY KEY,
+    CHECK (minute = date_trunc('minute', minute))
 );
 ```
 
