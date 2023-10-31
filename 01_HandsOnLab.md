@@ -437,7 +437,7 @@ SELECT create_distributed_table('impressions', 'company_id');
 次の手順では、サンプル データをコマンド ラインからクラスターに読み込みます。
 
 ## 4.5 シェルでデータをダウンロードし取得する
-1. `psql`コンソールに以下をコピー＆ペーストしてサンプルデータをダウンロードします。
+1. `psql`コンソールに以下を**1行ずつ**コピー＆ペーストしてサンプルデータをダウンロードします。(まとめて実行すると2行目以降がエラーになります)  
 ```
 \! curl -O https://examples.citusdata.com/mt_ref_arch/companies.csv
 \! curl -O https://examples.citusdata.com/mt_ref_arch/campaigns.csv
@@ -451,7 +451,7 @@ PostgreSQLの拡張機能であるCosmos DB for PostgreSQL (Citus) は`COPY`コ�
 
 ダウンロードしたデータを取り出し、ファイルを他の場所にダウンロードした場合は、正しいファイル パスを指定してください。
 
-2. `psql`コンソールに以下をコピー＆ペーストしてテーブルをロードします。
+2. `psql`コンソールに以下を**1行ずつ**コピー＆ペーストしてテーブルをロードします。(まとめて実行すると2行目以降がエラーになります)  
 ```
 \copy companies from 'companies.csv' with csv
 \copy campaigns from 'campaigns.csv' with csv
