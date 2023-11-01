@@ -229,12 +229,16 @@ SELECT create_distributed_table('github_users', 'user_id');
 
 ```
 \! curl -O https://examples.citusdata.com/users.csv
+```
+```
 \! curl -O https://examples.citusdata.com/events.csv
 ```
 7. `psql`コンソールでデータファイルをロードするために以下を *1行ずつ* コピー＆ペーストします。
 
 ```
 \copy github_events from 'events.csv' WITH CSV
+```
+```
 \copy github_users from 'users.csv' WITH CSV
 ```
 重い本番ワークロードの場合、COPYコマンドが単一ノードのPostgresよりもCosmos DB for PostgreSQL (Citus) で高速な理由は、COPYがファンアウトされ複数のワーカーノードで並行して実行されることによります。
@@ -461,10 +465,20 @@ SELECT create_distributed_table('impressions', 'company_id');
 1. `psql`コンソールに以下を**1行ずつ**コピー＆ペーストしてサンプルデータをダウンロードします。(まとめて実行すると2行目以降がエラーになります)  
 ```
 \! curl -O https://examples.citusdata.com/mt_ref_arch/companies.csv
+```
+```
 \! curl -O https://examples.citusdata.com/mt_ref_arch/campaigns.csv
+```
+```
 \! curl -O https://examples.citusdata.com/mt_ref_arch/ads.csv
+```
+```
 \! curl -O https://examples.citusdata.com/mt_ref_arch/clicks.csv
+```
+```
 \! curl -O https://examples.citusdata.com/mt_ref_arch/impressions.csv 
+```
+```
 \! curl -O https://examples.citusdata.com/mt_ref_arch/geo_ips.csv
 ```
 
@@ -475,9 +489,17 @@ PostgreSQLの拡張機能であるCosmos DB for PostgreSQL (Citus) は`COPY`コ�
 2. `psql`コンソールに以下を**1行ずつ**コピー＆ペーストしてテーブルをロードします。(まとめて実行すると2行目以降がエラーになります)  
 ```
 \copy companies from 'companies.csv' with csv
+```
+```
 \copy campaigns from 'campaigns.csv' with csv
+```
+```
 \copy ads from 'ads.csv' with csv
+```
+```
 \copy clicks from 'clicks.csv' with csv
+```
+```
 \copy impressions from 'impressions.csv' with csv
 ```
 
