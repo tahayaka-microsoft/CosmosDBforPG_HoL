@@ -202,6 +202,30 @@ SELECT create_distributed_table('github_users', 'user_id');
 >	- 参照テーブル – 全てのノードに複製されます。分散テーブルとの結合を可能にします。典型的には国や製品カテゴリのような小さなテーブルに用いられます。
 >	- ローカルテーブル – コーディネーターノードに置かれるテーブルで、シャーディングのメタデータの管理テーブルが典型例です。
 
+* 以下のSQLを実施すると、Cosmos DB for PostgreSQL (Citus)で管理しているテーブルの情報を得ることができます。
+
+```
+select * from citus_tables;
+```
+
+結果
+```
+citus=> select * from citus_tables;
+    table_name     | citus_table_type | distribution_column | colocation_id | table_size | shard_count | table_owner | access_method 
+-------------------+------------------+---------------------+---------------+------------+-------------+-------------+---------------
+ ads               | distributed      | company_id          |             1 | 2432 kB    |          32 | citus       | heap
+ campaigns         | distributed      | company_id          |             1 | 992 kB     |          32 | citus       | heap
+ clicks            | distributed      | company_id          |             1 | 12 MB      |          32 | citus       | heap
+ companies         | distributed      | id                  |             1 | 992 kB     |          32 | citus       | heap
+ geo_ips           | reference        | <none>              |             2 | 8768 kB    |           1 | citus       | heap
+ http_request      | distributed      | site_id             |             3 | 3640 kB    |          32 | citus       | heap
+ http_request_1min | distributed      | site_id             |             3 | 848 kB     |          32 | citus       | heap
+ impressions       | distributed      | company_id          |             1 | 38 MB      |          32 | citus       | heap
+(8 rows)
+```
+
+
+
 データをロードする準備が整いました。以下のコマンドでBashのクラウドシェルを「シェル実行」し、ファイルをダウンロードします。
 
 6. `psql`コンソールでデータファイルをダウンロードするために以下を *1行ずつ* コピー＆ペーストします。
